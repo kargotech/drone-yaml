@@ -68,6 +68,9 @@ type writer interface {
 
 	// WriteTag appends the keypair to the buffer.
 	WriteTagValue(k, v interface{})
+
+	// WriteList appends the keypair to the buffer.
+	WriteListValue(k, v interface{})
 }
 
 //
@@ -127,6 +130,33 @@ func (w *baseWriter) WriteTagValue(k, v interface{}) {
 		w.Indent()
 		writeValue(w, v)
 		w.depth--
+	}
+}
+
+func (w *baseWriter) WriteListValue(k, v interface{}) {
+	if isZero(v) && w.zero == false {
+		return
+	}
+	w.WriteTag(k)
+	if isSlice(v) {
+		w.WriteByte(' ')
+		w.WriteByte('[')
+
+		switch v := v.(type) {
+		case []interface{}:
+			for _, v := range v {
+				w.WriteByte(' ')
+				writeValue(w, v)
+			}
+		case []string:
+			for _, v := range v {
+				w.WriteByte(' ')
+				writeValue(w, v)
+			}
+		}
+
+		w.WriteByte(' ')
+		w.WriteByte(']')
 	}
 }
 

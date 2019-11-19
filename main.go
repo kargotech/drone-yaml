@@ -33,6 +33,8 @@ import (
 	"github.com/drone/drone-yaml/yaml/linter"
 	"github.com/drone/drone-yaml/yaml/pretty"
 	"github.com/drone/drone-yaml/yaml/signer"
+	"github.com/fatih/color"
+	"github.com/google/go-jsonnet"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -64,6 +66,14 @@ var (
 	compile     = kingpin.Command("compile", "compile the yaml file")
 	compileIn   = compile.Arg("source", "source file location").Default(".drone.yml").File()
 	compileName = compile.Flag("name", "pipeline name").String()
+
+	parse       = kingpin.Command("jsonnet", "parse the jsonnet file to a yaml")
+	parseSource = parse.Flag("source", "source file location").Default(".drone.jsonnet").String()
+	parseTarget = parse.Flag("target", "target file location").Default(".drone.yml").String()
+	parseStream = parse.Flag("stream", "Write output as a YAML stream").Default("false").Bool()
+	parseFormat = parse.Flag("format", "Write output as formatted YAML").Default("true").Bool()
+	parseStdout = parse.Flag("stdout", "Write output to stdout").Default("false").Bool()
+	parseString = parse.Flag("string", "Expect a string, manifest as plain text").Default("false").Bool()
 )
 
 func main() {
@@ -80,7 +90,68 @@ func main() {
 		kingpin.FatalIfError(runVerify(), "")
 	case compile.FullCommand():
 		kingpin.FatalIfError(runCompile(), "")
+	case parse.FullCommand():
+		kingpin.FatalIfError(runParse(), "")
 	}
+}
+
+// Code referenced from https://github.com/drone/drone-cli/blob/master/drone/jsonnet/jsonnet.go#L57
+func runParse() error {
+	source := *parseSource
+	target := *parseTarget
+
+	data, err := ioutil.ReadFile(source)
+	if err != nil {
+		return err
+	}
+
+	vm := jsonnet.MakeVM()
+	vm.MaxStack = 500
+	vm.StringOutput = *parseString
+	vm.ErrorFormatter.SetMaxStackTraceSize(20)
+	vm.ErrorFormatter.SetColorFormatter(
+		color.New(color.FgRed).Fprintf,
+	)
+
+	buf := new(bytes.Buffer)
+	if *parseStream {
+		docs, err := vm.EvaluateSnippetStream(source, string(data))
+		if err != nil {
+			return err
+		}
+		for _, doc := range docs {
+			buf.WriteString("---")
+			buf.WriteString("\n")
+			buf.WriteString(doc)
+		}
+	} else {
+		result, err := vm.EvaluateSnippet(source, string(data))
+		if err != nil {
+			return err
+		}
+		buf.WriteString(result)
+	}
+
+	// the yaml file is parsed and formatted by default. This
+	// can be disabled for --format=false.
+	if *parseFormat {
+		manifest, err := yaml.Parse(buf)
+		if err != nil {
+			return err
+		}
+		buf.Reset()
+		pretty.Print(buf, manifest)
+	}
+
+	// the user can optionally write the yaml to stdout. This
+	// is useful for debugging purposes without mutating an
+	// existing file.
+	if *parseStdout {
+		io.Copy(os.Stdout, buf)
+		return nil
+	}
+
+	return ioutil.WriteFile(target, buf.Bytes(), 0644)
 }
 
 func runFormat() error {
