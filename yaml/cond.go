@@ -29,12 +29,20 @@ type Conditions struct {
 	Status   Condition         `json:"status,omitempty"`
 	Paths    Condition         `json:"paths,omitempty"`
 	Matrix   map[string]string `json:"matrix,omitempty"`
+
+	Changeset Changeset `json:"changeset,omitempty"`
 }
 
 // Condition defines a runtime condition.
 type Condition struct {
 	Include []string `yaml:"include,omitempty" json:"include,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty" json:"exclude,omitempty"`
+}
+
+// Changeset defines a runtime condition.
+type Changeset struct {
+	Include []string `yaml:"includes,omitempty" json:"includes,omitempty"`
+	Exclude []string `yaml:"excludes,omitempty" json:"excludes,omitempty"`
 }
 
 // Match returns true if the string matches the include

@@ -152,6 +152,9 @@ func printConditions(w writer, name string, v yaml.Conditions) {
 	if !isConditionEmpty(v.Target) {
 		printCondition(w, "target", v.Target)
 	}
+	if !isChangesetEmpty(v.Changeset) {
+		printChangeset(w, "changeset", v.Changeset)
+	}
 	w.IndentDecrease()
 }
 
@@ -171,6 +174,16 @@ func printCondition(w writer, k string, v yaml.Condition) {
 	if len(v.Exclude) != 0 {
 		w.IndentIncrease()
 		w.WriteTagValue("exclude", v.Exclude)
+		w.IndentDecrease()
+	}
+}
+
+// helper function pretty prints a changeset mapping.
+func printChangeset(w writer, k string, v yaml.Changeset) {
+	w.WriteTag(k)
+	if len(v.Include) != 0 {
+		w.IndentIncrease()
+		w.WriteListValue("includes", v.Include)
 		w.IndentDecrease()
 	}
 }
@@ -289,6 +302,12 @@ func isConditionsEmpty(v yaml.Conditions) bool {
 		isConditionEmpty(v.Repo) &&
 		isConditionEmpty(v.Status) &&
 		isConditionEmpty(v.Target)
+}
+
+// helper function returns true if the changeset
+// object is empty.
+func isChangesetEmpty(v yaml.Changeset) bool {
+	return len(v.Exclude) == 0 && len(v.Include) == 0
 }
 
 // helper function returns true if the condition
